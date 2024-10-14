@@ -3,7 +3,7 @@ package main
 import (
 	"fmt"
 
-	"github.com/imeltser/gator/internal/config"
+	"github.com/imeltsner/gator/internal/config"
 )
 
 func main() {

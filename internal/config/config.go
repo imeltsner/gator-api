@@ -1,7 +1,6 @@
 package config
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -28,8 +27,7 @@ func Read() (Config, error) {
 	defer configFile.Close()
 
 	var cfg Config
-	reader := bufio.NewReader(configFile)
-	decoder := json.NewDecoder(reader)
+	decoder := json.NewDecoder(configFile)
 	err = decoder.Decode(&cfg)
 	if err != nil {
 		return Config{}, fmt.Errorf("unable to decode config file: %v", err)

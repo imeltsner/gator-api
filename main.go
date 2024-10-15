@@ -1,14 +1,19 @@
 package main
 
 import (
+	"database/sql"
 	"fmt"
 	"os"
 
 	"github.com/imeltsner/gator/internal/config"
+	"github.com/imeltsner/gator/internal/database"
+
+	_ "github.com/lib/pq"
 )
 
 type state struct {
 	cfg *config.Config
+	db  *database.Queries
 }
 
 func main() {
@@ -23,8 +28,15 @@ func main() {
 		os.Exit(1)
 	}
 
+	db, err := sql.Open("postgres", cfg.DBURL)
+	if err != nil {
+		fmt.Printf("unable to connect to db: %v", err)
+	}
+	dbQueries := database.New(db)
+
 	s := state{
 		cfg: &cfg,
+		db:  dbQueries,
 	}
 
 	cmds := commands{

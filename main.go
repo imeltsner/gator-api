@@ -7,6 +7,10 @@ import (
 	"github.com/imeltsner/gator/internal/config"
 )
 
+type state struct {
+	cfg *config.Config
+}
+
 func main() {
 	args := os.Args
 	if len(args) < 2 {

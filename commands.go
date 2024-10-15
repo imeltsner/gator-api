@@ -18,13 +18,10 @@ func (c *commands) register(name string, f func(*state, command) error) {
 }
 
 func (c *commands) run(s *state, cmd command) error {
-	if handler, ok := c.cmds[cmd.name]; ok {
-		err := handler(s, cmd)
-		if err != nil {
-			return err
-		}
-		return nil
+	handler, ok := c.cmds[cmd.name]
+	if !ok {
+		return fmt.Errorf("command %v not found", cmd.name)
 	}
 
-	return fmt.Errorf("command %v not found", cmd.name)
+	return handler(s, cmd)
 }

@@ -17,17 +17,20 @@ type state struct {
 }
 
 func main() {
+	// Check cmd line args
 	args := os.Args
 	if len(args) < 2 {
 		fmt.Printf("program expects at least 1 arg\n")
 		os.Exit(1)
 	}
 
+	// Read config file
 	cfg, err := config.Read()
 	if err != nil {
 		os.Exit(1)
 	}
 
+	// Connect to db
 	db, err := sql.Open("postgres", cfg.DBURL)
 	if err != nil {
 		fmt.Printf("unable to connect to db: %v", err)
@@ -39,22 +42,21 @@ func main() {
 		db:  dbQueries,
 	}
 
+	// Register commands
 	cmds := commands{
 		cmds: map[string]func(*state, command) error{},
 	}
 	cmds.register("login", handlerLogin)
 
+	// Parse cmd line args
 	cmdName := args[1]
-	var cmdSubArgs []string
-	if len(args) > 2 {
-		cmdSubArgs = args[2:]
-	}
-
+	cmdSubArgs := args[2:]
 	cmd := command{
 		name: cmdName,
 		args: cmdSubArgs,
 	}
 
+	// Run cmd
 	err = cmds.run(&s, cmd)
 	if err != nil {
 		os.Exit(1)

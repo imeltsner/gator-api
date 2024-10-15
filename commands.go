@@ -20,7 +20,7 @@ type commands struct {
 }
 
 func handlerLogin(s *state, cmd command) error {
-	if len(cmd.args) == 0 {
+	if len(cmd.args) != 1 {
 		return fmt.Errorf("login command expects 1 argument")
 	}
 
@@ -43,6 +43,7 @@ func (c *commands) run(s *state, cmd command) error {
 		if err != nil {
 			return err
 		}
+		return nil
 	}
 
 	return fmt.Errorf("command %v not found", cmd.name)

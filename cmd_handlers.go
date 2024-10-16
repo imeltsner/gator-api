@@ -63,3 +63,20 @@ func handlerReset(s *state, _ command) error {
 	fmt.Println("Users successfully deleted")
 	return nil
 }
+
+func handlerUsers(s *state, _ command) error {
+	users, err := s.db.GetUsers(context.Background())
+	if err != nil {
+		return fmt.Errorf("unable to get users %v", err)
+	}
+
+	for _, user := range users {
+		if user.Name == s.cfg.CurrentUsername {
+			fmt.Printf("* %v (current)\n", user.Name)
+		} else {
+			fmt.Printf("* %v\n", user.Name)
+		}
+	}
+
+	return nil
+}

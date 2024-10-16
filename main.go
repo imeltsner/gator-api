@@ -48,6 +48,7 @@ func main() {
 	}
 	cmds.register("login", handlerLogin)
 	cmds.register("register", handlerRegister)
+	cmds.register("reset", handlerReset)
 
 	// Parse cmd line args
 	cmdName := args[1]

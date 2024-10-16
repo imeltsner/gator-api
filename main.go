@@ -47,6 +47,7 @@ func main() {
 		cmds: map[string]func(*state, command) error{},
 	}
 	cmds.register("login", handlerLogin)
+	cmds.register("register", handlerRegister)
 
 	// Parse cmd line args
 	cmdName := args[1]

@@ -52,6 +52,7 @@ func main() {
 	cmds.register("users", handlerUsers)
 	cmds.register("agg", handlerAggregate)
 	cmds.register("addfeed", handlerAddFeed)
+	cmds.register("feeds", handlerGetFeeds)
 
 	// Parse cmd line args
 	cmdName := args[1]

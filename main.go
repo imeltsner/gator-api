@@ -51,6 +51,7 @@ func main() {
 	cmds.register("reset", handlerReset)
 	cmds.register("users", handlerUsers)
 	cmds.register("agg", handlerAggregate)
+	cmds.register("addfeed", handlerAddFeed)
 
 	// Parse cmd line args
 	cmdName := args[1]
@@ -63,6 +64,7 @@ func main() {
 	// Run cmd
 	err = cmds.run(&s, cmd)
 	if err != nil {
+		fmt.Println(err)
 		os.Exit(1)
 	}
 }

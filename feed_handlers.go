@@ -3,6 +3,10 @@ package main
 import (
 	"context"
 	"fmt"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/imeltsner/gator/internal/database"
 )
 
 func handlerAggregate(s *state, cmd command) error {
@@ -12,5 +16,33 @@ func handlerAggregate(s *state, cmd command) error {
 	}
 
 	fmt.Println(feed)
+	return nil
+}
+
+func handlerAddFeed(s *state, cmd command) error {
+	if len(cmd.args) != 2 {
+		return fmt.Errorf("feed command requires 2 sub args: name and url")
+	}
+
+	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUsername)
+	if err != nil {
+		return fmt.Errorf("unable to get user from db: %v", err)
+	}
+
+	feedParams := database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		Name:      currentUser.Name,
+		Url:       cmd.args[1],
+		UserID:    currentUser.ID,
+	}
+
+	feed, err := s.db.CreateFeed(context.Background(), feedParams)
+	if err != nil {
+		return fmt.Errorf("unable to create RSS feed: %v", err)
+	}
+
+	fmt.Printf("Feed created successfully with name %v at url %v\n", feed.Name, feed.Url)
 	return nil
 }

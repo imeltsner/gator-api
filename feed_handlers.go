@@ -19,14 +19,9 @@ func handlerAggregate(s *state, cmd command) error {
 	return nil
 }
 
-func handlerAddFeed(s *state, cmd command) error {
+func handlerAddFeed(s *state, cmd command, user database.User) error {
 	if len(cmd.args) != 2 {
 		return fmt.Errorf("feed command requires 2 sub args: name and url")
-	}
-
-	currentUser, err := s.db.GetUser(context.Background(), s.cfg.CurrentUsername)
-	if err != nil {
-		return fmt.Errorf("unable to get user from db: %v", err)
 	}
 
 	feedParams := database.CreateFeedParams{
@@ -35,7 +30,7 @@ func handlerAddFeed(s *state, cmd command) error {
 		UpdatedAt: time.Now().UTC(),
 		Name:      cmd.args[0],
 		Url:       cmd.args[1],
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 	}
 
 	feed, err := s.db.CreateFeed(context.Background(), feedParams)
@@ -47,13 +42,13 @@ func handlerAddFeed(s *state, cmd command) error {
 		ID:        uuid.New(),
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		UserID:    currentUser.ID,
+		UserID:    user.ID,
 		FeedID:    feed.ID,
 	}
 
 	_, err = s.db.CreateFeedFollow(context.Background(), feedFollowParams)
 	if err != nil {
-		return fmt.Errorf("unable to follow feed %v for user %v: %v", feed.Name, currentUser.Name, err)
+		return fmt.Errorf("unable to follow feed %v for user %v: %v", feed.Name, user.Name, err)
 	}
 
 	fmt.Printf("Feed created successfully with name %v at url %v\n", feed.Name, feed.Url)

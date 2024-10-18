@@ -69,16 +69,11 @@ func (q *Queries) CreateFeedFollow(ctx context.Context, arg CreateFeedFollowPara
 }
 
 const getFeedFollowsForUser = `-- name: GetFeedFollowsForUser :many
-WITH selected_feed_follows AS (
-    SELECT id, created_at, updated_at, user_id, feed_id FROM feed_follows WHERE feed_follows.user_id = $1
-)
-SELECT
-    selected_feed_follows.id, selected_feed_follows.created_at, selected_feed_follows.updated_at, selected_feed_follows.user_id, selected_feed_follows.feed_id,
-    feeds.name AS feed_name,
-    users.name AS user_name
-FROM selected_feed_follows
-INNER JOIN users ON selected_feed_follows.user_id = users.id
-INNER JOIN feeds ON selected_feed_follows.feed_id = feeds.id
+SELECT feed_follows.id, feed_follows.created_at, feed_follows.updated_at, feed_follows.user_id, feed_follows.feed_id, feeds.name AS feed_name, users.name AS user_name
+FROM feed_follows
+INNER JOIN feeds ON feed_follows.feed_id = feeds.id
+INNER JOIN users ON feeds.user_id = users.id
+WHERE feed_follows.user_id = $1
 `
 
 type GetFeedFollowsForUserRow struct {

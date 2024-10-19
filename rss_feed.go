@@ -8,8 +8,10 @@ import (
 	"html"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/imeltsner/gator/internal/database"
 )
 
@@ -91,14 +93,55 @@ func scrapeFeeds(s *state) error {
 	}
 	fmt.Printf("Feed at url %v fetched successfully\n", rssFeed.Channel.Link)
 
-	printFeed(*rssFeed)
+	err = saveFeed(s, *rssFeed, nextFeed)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 
-func printFeed(feed RSSFeed) {
-	fmt.Printf("*** Printing from RSS feed %v at url %v ***\n", feed.Channel.Title, feed.Channel.Link)
+func saveFeed(s *state, feed RSSFeed, dbFeed database.Feed) error {
 	for _, item := range feed.Channel.Item {
-		fmt.Printf("* Title: %v\n", item.Title)
-		fmt.Printf("* Description: %v\n", item.Description)
+		postParams := generatePostParams(item, dbFeed)
+		post, err := s.db.CreatePost(context.Background(), postParams)
+		if err != nil && strings.Contains(err.Error(), "duplicate key value") {
+			return nil
+		} else if err != nil {
+			return fmt.Errorf("unable to create post %v: %v", item.Title, err)
+		}
+		fmt.Printf("Successfully created post %v\n", post.Title)
+	}
+
+	return nil
+}
+
+func generatePostParams(item RSSItem, feed database.Feed) database.CreatePostParams {
+	var description sql.NullString
+	if item.Description == "" {
+		description = sql.NullString{}
+	} else {
+		description = sql.NullString{String: item.Description, Valid: true}
+	}
+
+	var pubDate sql.NullTime
+	if item.PubDate != "" {
+		parsedPubdate, err := time.Parse(time.RFC1123Z, item.PubDate)
+		if err != nil {
+			pubDate = sql.NullTime{}
+		}
+		pubDate = sql.NullTime{Time: parsedPubdate, Valid: true}
+	} else {
+		pubDate = sql.NullTime{}
+	}
+
+	return database.CreatePostParams{
+		ID:          uuid.New(),
+		CreatedAt:   time.Now().UTC(),
+		UpdatedAt:   time.Now().UTC(),
+		Title:       item.Title,
+		Url:         item.Link,
+		Description: description,
+		PublishedAt: pubDate,
+		FeedID:      feed.ID,
 	}
 }

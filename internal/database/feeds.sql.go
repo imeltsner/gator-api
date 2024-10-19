@@ -134,16 +134,17 @@ func (q *Queries) GetNextFeedToFetch(ctx context.Context) (Feed, error) {
 
 const markFeedFetched = `-- name: MarkFeedFetched :exec
 UPDATE feeds
-SET last_fetched_at = $1 AND updated_at = $1
-WHERE feeds.id = $2
+SET last_fetched_at = $1, updated_at = $2
+WHERE feeds.id = $3
 `
 
 type MarkFeedFetchedParams struct {
 	LastFetchedAt sql.NullTime
+	UpdatedAt     time.Time
 	ID            uuid.UUID
 }
 
 func (q *Queries) MarkFeedFetched(ctx context.Context, arg MarkFeedFetchedParams) error {
-	_, err := q.db.ExecContext(ctx, markFeedFetched, arg.LastFetchedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, markFeedFetched, arg.LastFetchedAt, arg.UpdatedAt, arg.ID)
 	return err
 }

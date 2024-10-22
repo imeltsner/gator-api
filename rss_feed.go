@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/imeltsner/gator/internal/database"
+	"github.com/imeltsner/gator-api/internal/database"
 )
 
 type RSSFeed struct {
@@ -38,7 +38,7 @@ func fetchFeed(ctx context.Context, feedURL string) (*RSSFeed, error) {
 	}
 
 	client := http.Client{}
-	req.Header.Add("User-Agent", "gator")
+	req.Header.Add("User-Agent", "gator-api")
 	res, err := client.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("unable to get response: %v", err)

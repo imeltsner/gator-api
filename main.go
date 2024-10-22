@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/imeltsner/gator/internal/config"
-	"github.com/imeltsner/gator/internal/database"
+	"github.com/imeltsner/gator-api/internal/config"
+	"github.com/imeltsner/gator-api/internal/database"
 
 	_ "github.com/lib/pq"
 )

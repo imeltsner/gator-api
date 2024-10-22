@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/imeltsner/gator/internal/database"
+	"github.com/imeltsner/gator-api/internal/database"
 )
 
 func handlerAggregate(s *state, cmd command) error {

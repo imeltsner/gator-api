@@ -1,4 +1,4 @@
-module github.com/imeltsner/gator
+module github.com/imeltsner/gator-api
 
 go 1.22.4
 

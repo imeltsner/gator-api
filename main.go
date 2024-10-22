@@ -3,10 +3,13 @@ package main
 import (
 	"database/sql"
 	"fmt"
+	"log"
+	"net/http"
 	"os"
 
 	"github.com/imeltsner/gator/internal/config"
 	"github.com/imeltsner/gator/internal/database"
+	"github.com/joho/godotenv"
 
 	_ "github.com/lib/pq"
 )
@@ -30,8 +33,12 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Load environment variables
+	godotenv.Load()
+	dbString := os.Getenv("DB_CONNECTION")
+
 	// Connect to db
-	db, err := sql.Open("postgres", cfg.DBURL)
+	db, err := sql.Open("postgres", dbString)
 	if err != nil {
 		fmt.Printf("unable to connect to db: %v", err)
 	}
@@ -40,6 +47,14 @@ func main() {
 	s := state{
 		cfg: &cfg,
 		db:  dbQueries,
+	}
+
+	// Create http server
+	port := os.Getenv("PORT")
+	mux := http.NewServeMux()
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
 	}
 
 	// Register commands
@@ -72,4 +87,8 @@ func main() {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	// Start server
+	log.Printf("Serving on port: %s\n", port)
+	log.Fatal(server.ListenAndServe())
 }

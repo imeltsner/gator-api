@@ -7,12 +7,9 @@ import (
 	"net/http"
 	"os"
 
-
-
 	"github.com/imeltsner/gator-api/internal/config"
 	"github.com/imeltsner/gator-api/internal/database"
-  "github.com/joho/godotenv"
-
+	"github.com/joho/godotenv"
 
 	_ "github.com/lib/pq"
 )

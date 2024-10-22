@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/imeltsner/gator/internal/database"
+	"github.com/imeltsner/gator-api/internal/database"
 )
 
 func handlerFollow(s *state, cmd command, user database.User) error {

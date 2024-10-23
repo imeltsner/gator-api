@@ -57,11 +57,14 @@ func main() {
 		Handler: mux,
 	}
 
+	// Register routes
+	mux.HandleFunc("POST /api/login", s.handlerLogin)
+
 	// Register commands
 	cmds := commands{
 		cmds: map[string]func(*state, command) error{},
 	}
-	cmds.register("login", handlerLogin)
+	//cmds.register("login", handlerLogin)
 	cmds.register("register", handlerRegister)
 	cmds.register("reset", handlerReset)
 	cmds.register("users", handlerUsers)

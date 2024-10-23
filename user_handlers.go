@@ -2,30 +2,53 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/imeltsner/gator-api/internal/database"
 )
 
-func handlerLogin(s *state, cmd command) error {
-	if len(cmd.args) != 1 {
-		return fmt.Errorf("login command expects 1 argument")
+type User struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	Name      string    `json:"name"`
+}
+
+// TODO: add password
+func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Name string `json:"username"`
 	}
 
-	dbUser, err := s.db.GetUser(context.Background(), cmd.args[0])
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
 	if err != nil {
-		return fmt.Errorf("unable to login: %v", err)
+		respondWithError(w, 500, "couldn't decode parameters", err)
+		return
 	}
 
-	err = s.cfg.SetUser(dbUser.Name)
+	dbUser, err := s.db.GetUser(r.Context(), params.Name)
 	if err != nil {
-		return err
+		respondWithError(w, 404, "user not found", err)
+		return
 	}
 
-	fmt.Printf("User has been set to %v\n", cmd.args[0])
-	return nil
+	respondWithJSON(w, 200, User{
+		ID:        dbUser.ID,
+		CreatedAt: dbUser.CreatedAt,
+		UpdatedAt: dbUser.UpdatedAt,
+		Name:      dbUser.Name,
+	})
+
+	// err = s.cfg.SetUser(dbUser.Name)
+	// if err != nil {
+	// 	return err
+	// }
 }
 
 func handlerRegister(s *state, cmd command) error {

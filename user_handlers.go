@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"strings"
@@ -115,7 +114,6 @@ func (s *state) handlerGetUsers(w http.ResponseWriter, r *http.Request) {
 			Name:      user.Name,
 		}
 	}
-	fmt.Println(len(allUsers))
 
 	respondWithJSON(w, http.StatusOK, response{
 		Users: allUsers,

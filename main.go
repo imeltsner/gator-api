@@ -64,6 +64,7 @@ func main() {
 	mux.HandleFunc("POST /api/login", s.handlerLogin)
 	mux.HandleFunc("POST /api/users", s.handlerCreateUser)
 	mux.HandleFunc("DELETE /api/users", s.handlerDeleteUsers)
+	mux.HandleFunc("GET /api/users", s.handlerGetUsers)
 
 	// Register commands
 	cmds := commands{
@@ -72,7 +73,7 @@ func main() {
 	//cmds.register("login", handlerLogin)
 	//cmds.register("register", handlerRegister)
 	//cmds.register("reset", handlerReset)
-	cmds.register("users", handlerUsers)
+	//cmds.register("users", handlerUsers)
 	cmds.register("agg", handlerAggregate)
 	cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
 	cmds.register("feeds", handlerGetFeeds)

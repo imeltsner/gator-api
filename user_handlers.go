@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -30,17 +29,17 @@ func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, 500, "couldn't decode parameters", err)
+		respondWithError(w, http.StatusInternalServerError, "couldn't decode parameters", err)
 		return
 	}
 
 	dbUser, err := s.db.GetUser(r.Context(), params.Name)
 	if err != nil {
-		respondWithError(w, 404, "user not found", err)
+		respondWithError(w, http.StatusNotFound, "user not found", err)
 		return
 	}
 
-	respondWithJSON(w, 200, User{
+	respondWithJSON(w, http.StatusOK, User{
 		ID:        dbUser.ID,
 		CreatedAt: dbUser.CreatedAt,
 		UpdatedAt: dbUser.UpdatedAt,
@@ -96,19 +95,29 @@ func (s *state) handlerDeleteUsers(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNoContent)
 }
 
-func handlerUsers(s *state, _ command) error {
-	users, err := s.db.GetUsers(context.Background())
+func (s *state) handlerGetUsers(w http.ResponseWriter, r *http.Request) {
+	users, err := s.db.GetUsers(r.Context())
 	if err != nil {
-		return fmt.Errorf("unable to get users %v", err)
+		respondWithError(w, http.StatusInternalServerError, "unable to get users", err)
+		return
 	}
 
-	for _, user := range users {
-		if user.Name == s.cfg.CurrentUsername {
-			fmt.Printf("* %v (current)\n", user.Name)
-		} else {
-			fmt.Printf("* %v\n", user.Name)
+	type response struct {
+		Users []User `json:"users"`
+	}
+
+	allUsers := make([]User, len(users))
+	for i, user := range users {
+		allUsers[i] = User{
+			ID:        user.ID,
+			CreatedAt: user.CreatedAt,
+			UpdatedAt: user.UpdatedAt,
+			Name:      user.Name,
 		}
 	}
+	fmt.Println(len(allUsers))
 
-	return nil
+	respondWithJSON(w, http.StatusOK, response{
+		Users: allUsers,
+	})
 }

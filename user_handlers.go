@@ -46,11 +46,6 @@ func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		UpdatedAt: dbUser.UpdatedAt,
 		Name:      dbUser.Name,
 	})
-
-	// err = s.cfg.SetUser(dbUser.Name)
-	// if err != nil {
-	// 	return err
-	// }
 }
 
 func (s *state) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
@@ -75,35 +70,30 @@ func (s *state) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 
 	dbUser, err := s.db.CreateUser(r.Context(), user)
 	if err != nil && strings.Contains(err.Error(), "duplicate key value") {
-		respondWithError(w, 409, "name already exists in db", err)
+		respondWithError(w, http.StatusConflict, "name already exists in db", err)
 		return
 	} else if err != nil {
-		respondWithError(w, 500, "unable to create user", err)
+		respondWithError(w, http.StatusInternalServerError, "unable to create user", err)
 		return
 	}
 
 	log.Printf("DB user with name %v and ID %v created at %v\n", dbUser.Name, dbUser.ID, dbUser.CreatedAt)
-	respondWithJSON(w, 201, User{
+	respondWithJSON(w, http.StatusCreated, User{
 		ID:        dbUser.ID,
 		CreatedAt: dbUser.CreatedAt,
 		UpdatedAt: dbUser.UpdatedAt,
 		Name:      dbUser.Name,
 	})
-
-	// err = s.cfg.SetUser(cmd.args[0])
-	// if err != nil {
-	// 	return fmt.Errorf("unable to set user: %v", err)
-	// }
 }
 
-func handlerReset(s *state, _ command) error {
-	err := s.db.DeleteUsers(context.Background())
+func (s *state) handlerDeleteUsers(w http.ResponseWriter, r *http.Request) {
+	err := s.db.DeleteUsers(r.Context())
 	if err != nil {
-		return fmt.Errorf("unable to delete users: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "unable to delete users", err)
+		return
 	}
 
-	fmt.Println("Users successfully deleted")
-	return nil
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func handlerUsers(s *state, _ command) error {

@@ -4,7 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -51,30 +53,47 @@ func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	// }
 }
 
-func handlerRegister(s *state, cmd command) error {
-	if len(cmd.args) != 1 {
-		return fmt.Errorf("register command expects 1 argument")
+func (s *state) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Name string `json:"name"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, 500, "unable to decode params", err)
+		return
 	}
 
 	user := database.CreateUserParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		Name:      cmd.args[0],
+		Name:      params.Name,
 	}
 
-	dbUser, err := s.db.CreateUser(context.Background(), user)
-	if err != nil {
-		return fmt.Errorf("unable to create db user: %v", err)
+	dbUser, err := s.db.CreateUser(r.Context(), user)
+	if err != nil && strings.Contains(err.Error(), "duplicate key value") {
+		respondWithError(w, 409, "name already exists in db", err)
+		return
+	} else if err != nil {
+		respondWithError(w, 500, "unable to create user", err)
+		return
 	}
 
-	err = s.cfg.SetUser(cmd.args[0])
-	if err != nil {
-		return fmt.Errorf("unable to set user: %v", err)
-	}
+	log.Printf("DB user with name %v and ID %v created at %v\n", dbUser.Name, dbUser.ID, dbUser.CreatedAt)
+	respondWithJSON(w, 201, User{
+		ID:        dbUser.ID,
+		CreatedAt: dbUser.CreatedAt,
+		UpdatedAt: dbUser.UpdatedAt,
+		Name:      dbUser.Name,
+	})
 
-	fmt.Printf("DB user with name %v and ID %v created at %v\n", dbUser.Name, dbUser.ID, dbUser.CreatedAt)
-	return nil
+	// err = s.cfg.SetUser(cmd.args[0])
+	// if err != nil {
+	// 	return fmt.Errorf("unable to set user: %v", err)
+	// }
 }
 
 func handlerReset(s *state, _ command) error {

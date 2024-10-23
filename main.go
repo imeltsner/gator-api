@@ -21,17 +21,19 @@ type state struct {
 
 func main() {
 	// Check cmd line args
-	args := os.Args
-	if len(args) < 2 {
-		fmt.Printf("program expects at least 1 arg\n")
-		os.Exit(1)
-	}
+	//args := os.Args
+	// if len(args) < 2 {
+	// 	fmt.Printf("program expects at least 1 arg\n")
+	// 	os.Exit(1)
+	// }
 
 	// Read config file
-	cfg, err := config.Read()
-	if err != nil {
-		os.Exit(1)
-	}
+	// cfg, err := config.Read()
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
+	cfg := config.Config{}
 
 	// Load environment variables
 	godotenv.Load()
@@ -41,6 +43,7 @@ func main() {
 	db, err := sql.Open("postgres", dbString)
 	if err != nil {
 		fmt.Printf("unable to connect to db: %v", err)
+		os.Exit(1)
 	}
 	dbQueries := database.New(db)
 
@@ -57,14 +60,20 @@ func main() {
 		Handler: mux,
 	}
 
+	// Register routes
+	mux.HandleFunc("POST /api/login", s.handlerLogin)
+	mux.HandleFunc("POST /api/users", s.handlerCreateUser)
+	mux.HandleFunc("DELETE /api/users", s.handlerDeleteUsers)
+	mux.HandleFunc("GET /api/users", s.handlerGetUsers)
+
 	// Register commands
 	cmds := commands{
 		cmds: map[string]func(*state, command) error{},
 	}
-	cmds.register("login", handlerLogin)
-	cmds.register("register", handlerRegister)
-	cmds.register("reset", handlerReset)
-	cmds.register("users", handlerUsers)
+	//cmds.register("login", handlerLogin)
+	//cmds.register("register", handlerRegister)
+	//cmds.register("reset", handlerReset)
+	//cmds.register("users", handlerUsers)
 	cmds.register("agg", handlerAggregate)
 	cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
 	cmds.register("feeds", handlerGetFeeds)
@@ -74,19 +83,19 @@ func main() {
 	cmds.register("browse", middlewareLoggedIn(handlerBrowse))
 
 	// Parse cmd line args
-	cmdName := args[1]
-	cmdSubArgs := args[2:]
-	cmd := command{
-		name: cmdName,
-		args: cmdSubArgs,
-	}
+	// cmdName := args[1]
+	// cmdSubArgs := args[2:]
+	// cmd := command{
+	// 	name: cmdName,
+	// 	args: cmdSubArgs,
+	// }
 
 	// Run cmd
-	err = cmds.run(&s, cmd)
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
+	// err = cmds.run(&s, cmd)
+	// if err != nil {
+	// 	fmt.Println(err)
+	// 	os.Exit(1)
+	// }
 
 	// Start server
 	log.Printf("Serving on port: %s\n", port)

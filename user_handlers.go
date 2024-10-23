@@ -23,7 +23,7 @@ type User struct {
 // TODO: add password
 func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Name string `json:"username"`
+		Name string `json:"name"`
 	}
 
 	decoder := json.NewDecoder(r.Body)

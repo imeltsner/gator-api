@@ -63,8 +63,10 @@ func main() {
 	// Register routes
 	mux.HandleFunc("POST /api/login", s.handlerLogin)
 	mux.HandleFunc("POST /api/users", s.handlerCreateUser)
-	mux.HandleFunc("DELETE /api/users", s.handlerDeleteUsers)
+	mux.HandleFunc("GET /api/users/{id}", s.handlerGetUser)
 	mux.HandleFunc("GET /api/users", s.handlerGetUsers)
+	mux.HandleFunc("DELETE /api/users/{id}", s.handlerDeleteUser)
+	mux.HandleFunc("DELETE /api/users", s.handlerDeleteUsers)
 
 	// Register commands
 	cmds := commands{

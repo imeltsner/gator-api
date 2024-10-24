@@ -84,6 +84,28 @@ func (s *state) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func (s *state) handlerGetUser(w http.ResponseWriter, r *http.Request) {
+	idString := r.PathValue("id")
+	id, err := uuid.Parse(idString)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse id", err)
+		return
+	}
+
+	user, err := s.db.GetUserByID(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "user not found", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, User{
+		ID:        user.ID,
+		CreatedAt: user.CreatedAt,
+		UpdatedAt: user.UpdatedAt,
+		Name:      user.Name,
+	})
+}
+
 func (s *state) handlerGetUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := s.db.GetUsers(r.Context())
 	if err != nil {
@@ -108,6 +130,23 @@ func (s *state) handlerGetUsers(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, response{
 		Users: allUsers,
 	})
+}
+
+func (s *state) handlerDeleteUser(w http.ResponseWriter, r *http.Request) {
+	idString := r.PathValue("id")
+	id, err := uuid.Parse(idString)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse id", err)
+		return
+	}
+
+	err = s.db.DeleteUser(r.Context(), id)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "unable to delete user", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *state) handlerDeleteUsers(w http.ResponseWriter, r *http.Request) {

@@ -32,7 +32,7 @@ func handlerFollow(s *state, cmd command, user database.User) error {
 		return fmt.Errorf("unable to create feed follow row: %v", err)
 	}
 
-	fmt.Printf("User %v successfully followed feed %v\n", feedFollow.UserName, feedFollow.FeedName)
+	fmt.Printf("User %v successfully followed feed %v\n", feedFollow.UserName, feedFollow.FeedTitle)
 	return nil
 }
 
@@ -44,7 +44,7 @@ func handlerFollowing(s *state, cmd command, user database.User) error {
 
 	fmt.Printf("User %v is following:\n", s.cfg.CurrentUsername)
 	for _, feed := range feeds {
-		fmt.Printf("* %v\n", feed.FeedName)
+		fmt.Printf("* %v\n", feed.FeedTitle)
 	}
 
 	return nil
@@ -66,9 +66,9 @@ func handlerUnfollow(s *state, cmd command, user database.User) error {
 	}
 	err = s.db.DeleteFeedFollow(context.Background(), deleteParams)
 	if err != nil {
-		return fmt.Errorf("user %v was unable to unfollow feed %v: %v", user.Name, feed.Name, err)
+		return fmt.Errorf("user %v was unable to unfollow feed %v: %v", user.Name, feed.Title, err)
 	}
 
-	fmt.Printf("User %v successfully unfollowed feed %v\n", user.Name, feed.Name)
+	fmt.Printf("User %v successfully unfollowed feed %v\n", user.Name, feed.Title)
 	return nil
 }

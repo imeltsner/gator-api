@@ -37,7 +37,7 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 		ID:        uuid.New(),
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		Name:      cmd.args[0],
+		Title:     cmd.args[0],
 		Url:       cmd.args[1],
 		UserID:    user.ID,
 	}
@@ -57,10 +57,10 @@ func handlerAddFeed(s *state, cmd command, user database.User) error {
 
 	_, err = s.db.CreateFeedFollow(context.Background(), feedFollowParams)
 	if err != nil {
-		return fmt.Errorf("unable to follow feed %v for user %v: %v", feed.Name, user.Name, err)
+		return fmt.Errorf("unable to follow feed %v for user %v: %v", feed.Title, user.Name, err)
 	}
 
-	fmt.Printf("Feed created successfully with name %v at url %v\n", feed.Name, feed.Url)
+	fmt.Printf("Feed created successfully with name %v at url %v\n", feed.Title, feed.Url)
 	return nil
 }
 
@@ -77,7 +77,7 @@ func handlerGetFeeds(s *state, cmd command) error {
 			continue
 		}
 		fmt.Println("***")
-		fmt.Printf("* Feed: %v\n", feed.Name)
+		fmt.Printf("* Feed: %v\n", feed.Title)
 		fmt.Printf("* URL: %v\n", feed.Url)
 		fmt.Printf("* Submitted by: %v\n", user)
 		fmt.Println("***")

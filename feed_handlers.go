@@ -6,8 +6,17 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/imeltsner/gator-api/internal/database"
 )
+
+type Feed struct {
+	ID            uuid.UUID `json:"id"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	LastFetchedAt time.Time `json:"last_fetched_at"`
+	Name          string    `json:"name"`
+	Url           string    `json:"url"`
+	UserID        uuid.UUID `json:"user_id"`
+}
 
 func handlerAggregate(s *state, cmd command) error {
 	if len(cmd.args) != 1 {
@@ -28,41 +37,54 @@ func handlerAggregate(s *state, cmd command) error {
 	}
 }
 
-func handlerAddFeed(s *state, cmd command, user database.User) error {
-	if len(cmd.args) != 2 {
-		return fmt.Errorf("feed command requires 2 sub args: name and url")
-	}
+// func (s *state) handlerAddFeed(w http.ResponseWriter, r *http.Request) {
+// 	// if len(cmd.args) != 2 {
+// 	// 	return fmt.Errorf("feed command requires 2 sub args: name and url")
+// 	// }
 
-	feedParams := database.CreateFeedParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-		Name:      cmd.args[0],
-		Url:       cmd.args[1],
-		UserID:    user.ID,
-	}
+// 	type parameters struct {
+// 		Name string `json:"name"`
+// 		Url  string `json:"url"`
+// 	}
 
-	feed, err := s.db.CreateFeed(context.Background(), feedParams)
-	if err != nil {
-		return fmt.Errorf("unable to create RSS feed: %v", err)
-	}
+// 	decoder := json.NewDecoder(r.Body)
+// 	params := parameters{}
+// 	err := decoder.Decode(&params)
+// 	if err != nil {
+// 		respondWithError(w, http.StatusInternalServerError, "unable to decode params", err)
+// 		return
+// 	}
 
-	feedFollowParams := database.CreateFeedFollowParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-		UserID:    user.ID,
-		FeedID:    feed.ID,
-	}
+// 	feedParams := database.CreateFeedParams{
+// 		ID:        uuid.New(),
+// 		CreatedAt: time.Now().UTC(),
+// 		UpdatedAt: time.Now().UTC(),
+// 		Name:      params.Name,
+// 		Url:       params.Url,
+// 		UserID:    user.ID,
+// 	}
 
-	_, err = s.db.CreateFeedFollow(context.Background(), feedFollowParams)
-	if err != nil {
-		return fmt.Errorf("unable to follow feed %v for user %v: %v", feed.Name, user.Name, err)
-	}
+// 	feed, err := s.db.CreateFeed(context.Background(), feedParams)
+// 	if err != nil {
+// 		return fmt.Errorf("unable to create RSS feed: %v", err)
+// 	}
 
-	fmt.Printf("Feed created successfully with name %v at url %v\n", feed.Name, feed.Url)
-	return nil
-}
+// 	feedFollowParams := database.CreateFeedFollowParams{
+// 		ID:        uuid.New(),
+// 		CreatedAt: time.Now().UTC(),
+// 		UpdatedAt: time.Now().UTC(),
+// 		UserID:    user.ID,
+// 		FeedID:    feed.ID,
+// 	}
+
+// 	_, err = s.db.CreateFeedFollow(context.Background(), feedFollowParams)
+// 	if err != nil {
+// 		return fmt.Errorf("unable to follow feed %v for user %v: %v", feed.Name, user.Name, err)
+// 	}
+
+// 	fmt.Printf("Feed created successfully with name %v at url %v\n", feed.Name, feed.Url)
+// 	return nil
+// }
 
 func handlerGetFeeds(s *state, cmd command) error {
 	feeds, err := s.db.GetFeeds(context.Background())

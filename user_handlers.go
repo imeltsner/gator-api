@@ -32,7 +32,7 @@ func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	dbUser, err := s.db.GetUser(r.Context(), params.Name)
+	dbUser, err := s.db.GetUserByName(r.Context(), params.Name)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "user not found", err)
 		return
@@ -84,16 +84,6 @@ func (s *state) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (s *state) handlerDeleteUsers(w http.ResponseWriter, r *http.Request) {
-	err := s.db.DeleteUsers(r.Context())
-	if err != nil {
-		respondWithError(w, http.StatusInternalServerError, "unable to delete users", err)
-		return
-	}
-
-	w.WriteHeader(http.StatusNoContent)
-}
-
 func (s *state) handlerGetUsers(w http.ResponseWriter, r *http.Request) {
 	users, err := s.db.GetUsers(r.Context())
 	if err != nil {
@@ -118,4 +108,14 @@ func (s *state) handlerGetUsers(w http.ResponseWriter, r *http.Request) {
 	respondWithJSON(w, http.StatusOK, response{
 		Users: allUsers,
 	})
+}
+
+func (s *state) handlerDeleteUsers(w http.ResponseWriter, r *http.Request) {
+	err := s.db.DeleteUsers(r.Context())
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to delete users", err)
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
 }

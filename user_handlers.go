@@ -9,6 +9,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/imeltsner/gator-api/internal/database"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -18,10 +19,10 @@ type User struct {
 	Name      string    `json:"name"`
 }
 
-// TODO: add password
 func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -38,6 +39,12 @@ func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	err = bcrypt.CompareHashAndPassword([]byte(dbUser.HashedPassword), []byte(params.Password))
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "incorrect password", err)
+		return
+	}
+
 	respondWithJSON(w, http.StatusOK, User{
 		ID:        dbUser.ID,
 		CreatedAt: dbUser.CreatedAt,
@@ -48,22 +55,34 @@ func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 
 func (s *state) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, 500, "unable to decode params", err)
+		respondWithError(w, http.StatusInternalServerError, "unable to decode params", err)
+		return
+	}
+	if params.Password == "" {
+		respondWithError(w, http.StatusBadRequest, "password is required", err)
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.MinCost)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to hash password", err)
 		return
 	}
 
 	user := database.CreateUserParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-		Name:      params.Name,
+		ID:             uuid.New(),
+		CreatedAt:      time.Now().UTC(),
+		UpdatedAt:      time.Now().UTC(),
+		Name:           params.Name,
+		HashedPassword: string(hashedPassword),
 	}
 
 	dbUser, err := s.db.CreateUser(r.Context(), user)

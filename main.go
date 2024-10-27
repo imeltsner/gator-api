@@ -62,13 +62,16 @@ func main() {
 		Handler: mux,
 	}
 
-	// Register routes
+	// Register user routes
 	mux.HandleFunc("POST /api/login", s.handlerLogin)
 	mux.HandleFunc("POST /api/users", s.handlerCreateUser)
 	mux.HandleFunc("GET /api/users/{id}", s.handlerGetUser) // authenticated
 	mux.HandleFunc("GET /api/users", s.handlerGetUsers)
 	mux.HandleFunc("DELETE /api/users/{id}", s.handlerDeleteUser) // authenticated
 	mux.HandleFunc("DELETE /admin/reset", s.handlerDeleteUsers)
+
+	// Register feed routes
+	mux.HandleFunc("POST /api/feeds", s.handlerAddFeed) // authenticated
 
 	// Register commands
 	cmds := commands{

@@ -2,10 +2,15 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"log"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/imeltsner/gator-api/internal/auth"
+	"github.com/imeltsner/gator-api/internal/database"
 )
 
 type Feed struct {
@@ -13,7 +18,7 @@ type Feed struct {
 	CreatedAt     time.Time `json:"created_at"`
 	UpdatedAt     time.Time `json:"updated_at"`
 	LastFetchedAt time.Time `json:"last_fetched_at"`
-	Name          string    `json:"name"`
+	Title         string    `json:"title"`
 	Url           string    `json:"url"`
 	UserID        uuid.UUID `json:"user_id"`
 }
@@ -37,54 +42,72 @@ func handlerAggregate(s *state, cmd command) error {
 	}
 }
 
-// func (s *state) handlerAddFeed(w http.ResponseWriter, r *http.Request) {
-// 	// if len(cmd.args) != 2 {
-// 	// 	return fmt.Errorf("feed command requires 2 sub args: name and url")
-// 	// }
+func (s *state) handlerAddFeed(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Title string `json:"title"`
+		Url   string `json:"url"`
+	}
 
-// 	type parameters struct {
-// 		Name string `json:"name"`
-// 		Url  string `json:"url"`
-// 	}
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to decode params", err)
+		return
+	}
 
-// 	decoder := json.NewDecoder(r.Body)
-// 	params := parameters{}
-// 	err := decoder.Decode(&params)
-// 	if err != nil {
-// 		respondWithError(w, http.StatusInternalServerError, "unable to decode params", err)
-// 		return
-// 	}
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse auth header", err)
+		return
+	}
 
-// 	feedParams := database.CreateFeedParams{
-// 		ID:        uuid.New(),
-// 		CreatedAt: time.Now().UTC(),
-// 		UpdatedAt: time.Now().UTC(),
-// 		Name:      params.Name,
-// 		Url:       params.Url,
-// 		UserID:    user.ID,
-// 	}
+	id, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
+	}
 
-// 	feed, err := s.db.CreateFeed(context.Background(), feedParams)
-// 	if err != nil {
-// 		return fmt.Errorf("unable to create RSS feed: %v", err)
-// 	}
+	feedParams := database.CreateFeedParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		Title:     params.Title,
+		Url:       params.Url,
+		UserID:    id,
+	}
 
-// 	feedFollowParams := database.CreateFeedFollowParams{
-// 		ID:        uuid.New(),
-// 		CreatedAt: time.Now().UTC(),
-// 		UpdatedAt: time.Now().UTC(),
-// 		UserID:    user.ID,
-// 		FeedID:    feed.ID,
-// 	}
+	feed, err := s.db.CreateFeed(r.Context(), feedParams)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to create feed", err)
+		return
+	}
 
-// 	_, err = s.db.CreateFeedFollow(context.Background(), feedFollowParams)
-// 	if err != nil {
-// 		return fmt.Errorf("unable to follow feed %v for user %v: %v", feed.Name, user.Name, err)
-// 	}
+	feedFollowParams := database.CreateFeedFollowParams{
+		ID:        uuid.New(),
+		CreatedAt: time.Now().UTC(),
+		UpdatedAt: time.Now().UTC(),
+		UserID:    id,
+		FeedID:    feed.ID,
+	}
 
-// 	fmt.Printf("Feed created successfully with name %v at url %v\n", feed.Name, feed.Url)
-// 	return nil
-// }
+	_, err = s.db.CreateFeedFollow(r.Context(), feedFollowParams)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to create feed follow entry", err)
+		return
+	}
+
+	log.Printf("Feed created successfully with name %v at url %v\n", feed.Title, feed.Url)
+	respondWithJSON(w, http.StatusCreated, Feed{
+		ID:            feed.ID,
+		CreatedAt:     feed.CreatedAt,
+		UpdatedAt:     feed.UpdatedAt,
+		LastFetchedAt: feed.LastFetchedAt.Time,
+		Title:         feed.Title,
+		Url:           feed.Url,
+		UserID:        feed.UserID,
+	})
+}
 
 func handlerGetFeeds(s *state, cmd command) error {
 	feeds, err := s.db.GetFeeds(context.Background())

@@ -68,7 +68,7 @@ func main() {
 	mux.HandleFunc("GET /api/users/{id}", s.handlerGetUser)
 	mux.HandleFunc("GET /api/users", s.handlerGetUsers)
 	mux.HandleFunc("DELETE /api/users/{id}", s.handlerDeleteUser)
-	mux.HandleFunc("DELETE /api/users", s.handlerDeleteUsers)
+	mux.HandleFunc("DELETE /admin/reset", s.handlerDeleteUsers)
 
 	// Register commands
 	cmds := commands{

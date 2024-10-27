@@ -15,8 +15,9 @@ import (
 )
 
 type state struct {
-	cfg *config.Config
-	db  *database.Queries
+	cfg       *config.Config
+	db        *database.Queries
+	jwtSecret string
 }
 
 func main() {
@@ -48,8 +49,9 @@ func main() {
 	dbQueries := database.New(db)
 
 	s := state{
-		cfg: &cfg,
-		db:  dbQueries,
+		cfg:       &cfg,
+		db:        dbQueries,
+		jwtSecret: os.Getenv("JWT_SECRET"),
 	}
 
 	// Create http server

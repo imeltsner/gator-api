@@ -134,6 +134,23 @@ func (s *state) handlerGetUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to parse auth header", err)
+		return
+	}
+
+	authID, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
+	}
+
+	if authID != id {
+		respondWithError(w, http.StatusUnauthorized, "mismatched id", err)
+		return
+	}
+
 	user, err := s.db.GetUserByID(r.Context(), id)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "user not found", err)

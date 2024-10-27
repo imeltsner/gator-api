@@ -15,8 +15,9 @@ import (
 )
 
 type state struct {
-	cfg *config.Config
-	db  *database.Queries
+	cfg       *config.Config
+	db        *database.Queries
+	jwtSecret string
 }
 
 func main() {
@@ -48,8 +49,9 @@ func main() {
 	dbQueries := database.New(db)
 
 	s := state{
-		cfg: &cfg,
-		db:  dbQueries,
+		cfg:       &cfg,
+		db:        dbQueries,
+		jwtSecret: os.Getenv("JWT_SECRET"),
 	}
 
 	// Create http server
@@ -63,10 +65,10 @@ func main() {
 	// Register routes
 	mux.HandleFunc("POST /api/login", s.handlerLogin)
 	mux.HandleFunc("POST /api/users", s.handlerCreateUser)
-	mux.HandleFunc("GET /api/users/{id}", s.handlerGetUser)
+	mux.HandleFunc("GET /api/users/{id}", s.handlerGetUser) // authenticated
 	mux.HandleFunc("GET /api/users", s.handlerGetUsers)
-	mux.HandleFunc("DELETE /api/users/{id}", s.handlerDeleteUser)
-	mux.HandleFunc("DELETE /api/users", s.handlerDeleteUsers)
+	mux.HandleFunc("DELETE /api/users/{id}", s.handlerDeleteUser) // authenticated
+	mux.HandleFunc("DELETE /admin/reset", s.handlerDeleteUsers)
 
 	// Register commands
 	cmds := commands{

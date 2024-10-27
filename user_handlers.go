@@ -8,7 +8,9 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/imeltsner/gator-api/internal/auth"
 	"github.com/imeltsner/gator-api/internal/database"
+	"golang.org/x/crypto/bcrypt"
 )
 
 type User struct {
@@ -18,10 +20,11 @@ type User struct {
 	Name      string    `json:"name"`
 }
 
-// TODO: add password
 func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Name string `json:"name"`
+		Name      string `json:"name"`
+		Password  string `json:"password"`
+		ExpiresIn int    `json:"expires_in_seconds"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -38,32 +41,71 @@ func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, User{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Name:      dbUser.Name,
+	err = bcrypt.CompareHashAndPassword([]byte(dbUser.HashedPassword), []byte(params.Password))
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "incorrect password", err)
+		return
+	}
+
+	var expirationTime time.Duration
+	if params.ExpiresIn > 0 && params.ExpiresIn > 3600 {
+		expirationTime = time.Hour
+	} else {
+		expirationTime = time.Duration(params.ExpiresIn) * time.Second
+	}
+
+	token, err := auth.MakeJWT(dbUser.ID, s.jwtSecret, expirationTime)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to make jwt", err)
+		return
+	}
+
+	type response struct {
+		User
+		Token string `json:"token"`
+	}
+
+	respondWithJSON(w, http.StatusOK, response{
+		User: User{
+			ID:        dbUser.ID,
+			CreatedAt: dbUser.CreatedAt,
+			UpdatedAt: dbUser.UpdatedAt,
+			Name:      dbUser.Name,
+		},
+		Token: token,
 	})
 }
 
 func (s *state) handlerCreateUser(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Name string `json:"name"`
+		Name     string `json:"name"`
+		Password string `json:"password"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
 	params := parameters{}
 	err := decoder.Decode(&params)
 	if err != nil {
-		respondWithError(w, 500, "unable to decode params", err)
+		respondWithError(w, http.StatusInternalServerError, "unable to decode params", err)
+		return
+	}
+	if params.Password == "" {
+		respondWithError(w, http.StatusBadRequest, "password is required", err)
+		return
+	}
+
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(params.Password), bcrypt.MinCost)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to hash password", err)
 		return
 	}
 
 	user := database.CreateUserParams{
-		ID:        uuid.New(),
-		CreatedAt: time.Now().UTC(),
-		UpdatedAt: time.Now().UTC(),
-		Name:      params.Name,
+		ID:             uuid.New(),
+		CreatedAt:      time.Now().UTC(),
+		UpdatedAt:      time.Now().UTC(),
+		Name:           params.Name,
+		HashedPassword: string(hashedPassword),
 	}
 
 	dbUser, err := s.db.CreateUser(r.Context(), user)
@@ -89,6 +131,23 @@ func (s *state) handlerGetUser(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(idString)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "unable to parse id", err)
+		return
+	}
+
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to parse auth header", err)
+		return
+	}
+
+	authID, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
+	}
+
+	if authID != id {
+		respondWithError(w, http.StatusUnauthorized, "mismatched id", err)
 		return
 	}
 
@@ -137,6 +196,23 @@ func (s *state) handlerDeleteUser(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(idString)
 	if err != nil {
 		respondWithError(w, http.StatusInternalServerError, "unable to parse id", err)
+		return
+	}
+
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse auth header", err)
+		return
+	}
+
+	authID, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
+	}
+
+	if authID != id {
+		respondWithError(w, http.StatusUnauthorized, "mismatched id", err)
 		return
 	}
 

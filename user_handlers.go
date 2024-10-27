@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/imeltsner/gator-api/internal/auth"
 	"github.com/imeltsner/gator-api/internal/database"
 	"golang.org/x/crypto/bcrypt"
 )
@@ -21,8 +22,9 @@ type User struct {
 
 func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 	type parameters struct {
-		Name     string `json:"name"`
-		Password string `json:"password"`
+		Name      string `json:"name"`
+		Password  string `json:"password"`
+		ExpiresIn int    `json:"expires_in_seconds"`
 	}
 
 	decoder := json.NewDecoder(r.Body)
@@ -45,11 +47,32 @@ func (s *state) handlerLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	respondWithJSON(w, http.StatusOK, User{
-		ID:        dbUser.ID,
-		CreatedAt: dbUser.CreatedAt,
-		UpdatedAt: dbUser.UpdatedAt,
-		Name:      dbUser.Name,
+	var expirationTime time.Duration
+	if params.ExpiresIn > 0 && params.ExpiresIn > 3600 {
+		expirationTime = time.Hour
+	} else {
+		expirationTime = time.Duration(params.ExpiresIn) * time.Second
+	}
+
+	token, err := auth.MakeJWT(dbUser.ID, s.jwtSecret, expirationTime)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to make jwt", err)
+		return
+	}
+
+	type response struct {
+		User
+		Token string `json:"token"`
+	}
+
+	respondWithJSON(w, http.StatusOK, response{
+		User: User{
+			ID:        dbUser.ID,
+			CreatedAt: dbUser.CreatedAt,
+			UpdatedAt: dbUser.UpdatedAt,
+			Name:      dbUser.Name,
+		},
+		Token: token,
 	})
 }
 

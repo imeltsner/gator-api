@@ -182,6 +182,23 @@ func (s *state) handlerDeleteUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse auth header", err)
+		return
+	}
+
+	authID, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
+	}
+
+	if authID != id {
+		respondWithError(w, http.StatusUnauthorized, "mismatched id", err)
+		return
+	}
+
 	err = s.db.DeleteUser(r.Context(), id)
 	if err != nil {
 		respondWithError(w, http.StatusNotFound, "unable to delete user", err)

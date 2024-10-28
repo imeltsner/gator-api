@@ -109,24 +109,40 @@ func (s *state) handlerAddFeed(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func handlerGetFeeds(s *state, cmd command) error {
+func (s *state) handlerGetFeeds(w http.ResponseWriter, r *http.Request) {
 	feeds, err := s.db.GetFeeds(context.Background())
 	if err != nil {
-		return fmt.Errorf("unable to get feeds")
+		respondWithError(w, http.StatusInternalServerError, "unable to get feeds", err)
+		return
 	}
 
-	for _, feed := range feeds {
+	type response struct {
+		Feeds []Feed   `json:"feeds"`
+		Users []string `json:"users"`
+	}
+	allFeeds := make([]Feed, len(feeds))
+	userNames := make([]string, len(feeds))
+
+	for i, feed := range feeds {
 		user, err := s.db.GetUserNameByID(context.Background(), feed.UserID)
 		if err != nil {
-			fmt.Printf("unable to get retrieve name for feed %v\n", feed.ID)
-			continue
+			respondWithError(w, http.StatusNotFound, "user not found", err)
+			return
 		}
-		fmt.Println("***")
-		fmt.Printf("* Feed: %v\n", feed.Title)
-		fmt.Printf("* URL: %v\n", feed.Url)
-		fmt.Printf("* Submitted by: %v\n", user)
-		fmt.Println("***")
+		allFeeds[i] = Feed{
+			ID:            feed.ID,
+			CreatedAt:     feed.CreatedAt,
+			UpdatedAt:     feed.UpdatedAt,
+			LastFetchedAt: feed.LastFetchedAt.Time,
+			Title:         feed.Title,
+			Url:           feed.Url,
+			UserID:        feed.UserID,
+		}
+		userNames[i] = user
 	}
 
-	return nil
+	respondWithJSON(w, http.StatusOK, response{
+		Feeds: allFeeds,
+		Users: userNames,
+	})
 }

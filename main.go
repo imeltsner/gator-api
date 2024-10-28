@@ -72,6 +72,7 @@ func main() {
 
 	// Register feed routes
 	mux.HandleFunc("POST /api/feeds", s.handlerAddFeed) // authenticated
+	mux.HandleFunc("GET /api/feeds", s.handlerGetFeeds)
 
 	// Register commands
 	cmds := commands{
@@ -83,7 +84,7 @@ func main() {
 	//cmds.register("users", handlerUsers)
 	cmds.register("agg", handlerAggregate)
 	// cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
-	cmds.register("feeds", handlerGetFeeds)
+	// cmds.register("feeds", handlerGetFeeds)
 	cmds.register("follow", middlewareLoggedIn(handlerFollow))
 	cmds.register("following", middlewareLoggedIn(handlerFollowing))
 	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))

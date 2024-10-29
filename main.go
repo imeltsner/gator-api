@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/imeltsner/gator-api/internal/config"
 	"github.com/imeltsner/gator-api/internal/database"
 	"github.com/joho/godotenv"
 
@@ -15,27 +14,11 @@ import (
 )
 
 type state struct {
-	cfg       *config.Config
 	db        *database.Queries
 	jwtSecret string
 }
 
 func main() {
-	// Check cmd line args
-	//args := os.Args
-	// if len(args) < 2 {
-	// 	fmt.Printf("program expects at least 1 arg\n")
-	// 	os.Exit(1)
-	// }
-
-	// Read config file
-	// cfg, err := config.Read()
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(1)
-	// }
-	cfg := config.Config{}
-
 	// Load environment variables
 	godotenv.Load()
 	dbString := os.Getenv("DB_CONNECTION")
@@ -49,7 +32,6 @@ func main() {
 	dbQueries := database.New(db)
 
 	s := state{
-		cfg:       &cfg,
 		db:        dbQueries,
 		jwtSecret: os.Getenv("JWT_SECRET"),
 	}
@@ -76,36 +58,13 @@ func main() {
 	mux.HandleFunc("GET /api/feeds", s.handlerGetFeeds)
 	mux.HandleFunc("POST /api/agg", s.handlerAggregate)
 
-	// Register commands
-	cmds := commands{
-		cmds: map[string]func(*state, command) error{},
-	}
-	//cmds.register("login", handlerLogin)
-	//cmds.register("register", handlerRegister)
-	//cmds.register("reset", handlerReset)
-	//cmds.register("users", handlerUsers)
-	// cmds.register("agg", handlerAggregate)
-	// cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
-	// cmds.register("feeds", handlerGetFeeds)
-	cmds.register("follow", middlewareLoggedIn(handlerFollow))
-	cmds.register("following", middlewareLoggedIn(handlerFollowing))
-	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))
-	cmds.register("browse", middlewareLoggedIn(handlerBrowse))
+	// Register follow routes
+	mux.HandleFunc("POST /api/follows", s.handlerFollow)     // authenticated
+	mux.HandleFunc("GET /api/follows", s.handlerFollowing)   // authenticated
+	mux.HandleFunc("DELETE /api/follows", s.handlerUnfollow) // authenticated
 
-	// Parse cmd line args
-	// cmdName := args[1]
-	// cmdSubArgs := args[2:]
-	// cmd := command{
-	// 	name: cmdName,
-	// 	args: cmdSubArgs,
-	// }
-
-	// Run cmd
-	// err = cmds.run(&s, cmd)
-	// if err != nil {
-	// 	fmt.Println(err)
-	// 	os.Exit(1)
-	// }
+	// Register post routes
+	mux.HandleFunc("GET /api/posts", s.handlerBrowse) // authenticated
 
 	// Start server
 	log.Printf("Serving on port: %s\n", port)

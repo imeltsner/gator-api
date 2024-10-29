@@ -2,73 +2,161 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/imeltsner/gator-api/internal/auth"
 	"github.com/imeltsner/gator-api/internal/database"
 )
 
-func handlerFollow(s *state, cmd command, user database.User) error {
-	if len(cmd.args) != 1 {
-		return fmt.Errorf("follow cmd expects 1 arg: url")
+type FeedFollow struct {
+	ID        uuid.UUID `json:"id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UserID    uuid.UUID `json:"user_id"`
+	FeedID    uuid.UUID `json:"feed_id"`
+}
+
+func (s *state) handlerFollow(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Url string `json:"url"`
 	}
 
-	feed, err := s.db.GetFeedByURL(context.Background(), cmd.args[0])
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
 	if err != nil {
-		return fmt.Errorf("unable to get feeed by url: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "unable to decode params", err)
+		return
+	}
+
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse auth header", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
+	}
+
+	feed, err := s.db.GetFeedByURL(context.Background(), params.Url)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "feed not found", err)
+		return
 	}
 
 	feedFollowParams := database.CreateFeedFollowParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		UserID:    user.ID,
+		UserID:    userID,
 		FeedID:    feed.ID,
 	}
 
 	feedFollow, err := s.db.CreateFeedFollow(context.Background(), feedFollowParams)
 	if err != nil {
-		return fmt.Errorf("unable to create feed follow row: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "unable to create feed follow entry", err)
+		return
 	}
 
-	fmt.Printf("User %v successfully followed feed %v\n", feedFollow.UserName, feedFollow.FeedTitle)
-	return nil
+	respondWithJSON(w, http.StatusCreated, FeedFollow{
+		ID:        feedFollow.ID,
+		CreatedAt: feedFollow.CreatedAt,
+		UpdatedAt: feedFollow.UpdatedAt,
+		UserID:    userID,
+		FeedID:    feed.ID,
+	})
 }
 
-func handlerFollowing(s *state, cmd command, user database.User) error {
-	feeds, err := s.db.GetFeedFollowsForUser(context.Background(), user.ID)
+func (s *state) handlerFollowing(w http.ResponseWriter, r *http.Request) {
+	authToken, err := auth.GetBearerToken(r.Header)
 	if err != nil {
-		return fmt.Errorf("unable to get feeds user %v is following: %v", s.cfg.CurrentUsername, err)
+		respondWithError(w, http.StatusInternalServerError, "unable to parse auth header", err)
+		return
 	}
 
-	fmt.Printf("User %v is following:\n", s.cfg.CurrentUsername)
-	for _, feed := range feeds {
-		fmt.Printf("* %v\n", feed.FeedTitle)
+	userID, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
 	}
 
-	return nil
+	feeds, err := s.db.GetFeedFollowsForUser(context.Background(), userID)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to get follows", err)
+		return
+	}
+
+	type feedFollowForUser struct {
+		feedFollow FeedFollow
+		Title      string `json:"title"`
+		PostedBy   string `json:"posted_by"`
+	}
+	type response struct {
+		FeedsFollowed []feedFollowForUser `json:"feeds_followed"`
+	}
+	feedsFollowed := make([]feedFollowForUser, len(feeds))
+	for i, feed := range feeds {
+		feedsFollowed[i] = feedFollowForUser{
+			feedFollow: FeedFollow{
+				ID:        feed.ID,
+				CreatedAt: feed.CreatedAt,
+				UpdatedAt: feed.UpdatedAt,
+				UserID:    feed.UserID,
+				FeedID:    feed.FeedID,
+			},
+			Title:    feed.FeedTitle,
+			PostedBy: feed.UserName,
+		}
+	}
+
+	respondWithJSON(w, http.StatusOK, response{FeedsFollowed: feedsFollowed})
 }
 
-func handlerUnfollow(s *state, cmd command, user database.User) error {
-	if len(cmd.args) != 1 {
-		return fmt.Errorf("unfollow command requires 1 arg: url")
+func (s *state) handlerUnfollow(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Url string `json:"url"`
 	}
 
-	feed, err := s.db.GetFeedByURL(context.Background(), cmd.args[0])
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
 	if err != nil {
-		return fmt.Errorf("unable to get feed at url %v: %v", cmd.args[0], err)
+		respondWithError(w, http.StatusInternalServerError, "unable to decode params", err)
+		return
+	}
+
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse auth header", err)
+		return
+	}
+
+	userID, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
+	}
+
+	feed, err := s.db.GetFeedByURL(context.Background(), params.Url)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "feed not found", err)
+		return
 	}
 
 	deleteParams := database.DeleteFeedFollowParams{
-		UserID: user.ID,
+		UserID: userID,
 		FeedID: feed.ID,
 	}
 	err = s.db.DeleteFeedFollow(context.Background(), deleteParams)
 	if err != nil {
-		return fmt.Errorf("user %v was unable to unfollow feed %v: %v", user.Name, feed.Title, err)
+		respondWithError(w, http.StatusNotFound, "unable to unfollow", err)
 	}
 
-	fmt.Printf("User %v successfully unfollowed feed %v\n", user.Name, feed.Title)
-	return nil
+	w.WriteHeader(http.StatusNoContent)
 }

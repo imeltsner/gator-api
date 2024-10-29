@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 	"log"
 	"net/http"
 	"time"
@@ -23,23 +22,13 @@ type Feed struct {
 	UserID        uuid.UUID `json:"user_id"`
 }
 
-func handlerAggregate(s *state, cmd command) error {
-	if len(cmd.args) != 1 {
-		return fmt.Errorf("agg command expects 1 argumnt: duration")
+func (s *state) handlerAggregate(w http.ResponseWriter, r *http.Request) {
+	err := s.scrapeFeeds()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to scrape feeds", err)
 	}
 
-	timeBetweenReqs, err := time.ParseDuration(cmd.args[0])
-	if err != nil {
-		return fmt.Errorf("unable to parse duration %v: %v", cmd.args[0], err)
-	}
-	fmt.Printf("Fetching feeds every %v\n", timeBetweenReqs)
-	ticker := time.NewTicker(timeBetweenReqs)
-	for ; ; <-ticker.C {
-		err = scrapeFeeds(s)
-		if err != nil {
-			return err
-		}
-	}
+	w.WriteHeader(http.StatusOK)
 }
 
 func (s *state) handlerAddFeed(w http.ResponseWriter, r *http.Request) {
@@ -99,6 +88,31 @@ func (s *state) handlerAddFeed(w http.ResponseWriter, r *http.Request) {
 
 	log.Printf("Feed created successfully with name %v at url %v\n", feed.Title, feed.Url)
 	respondWithJSON(w, http.StatusCreated, Feed{
+		ID:            feed.ID,
+		CreatedAt:     feed.CreatedAt,
+		UpdatedAt:     feed.UpdatedAt,
+		LastFetchedAt: feed.LastFetchedAt.Time,
+		Title:         feed.Title,
+		Url:           feed.Url,
+		UserID:        feed.UserID,
+	})
+}
+
+func (s *state) handlerGetFeed(w http.ResponseWriter, r *http.Request) {
+	idString := r.PathValue("id")
+	feedID, err := uuid.Parse(idString)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse feed id", err)
+		return
+	}
+
+	feed, err := s.db.GetFeedByID(r.Context(), feedID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "feed not found", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, Feed{
 		ID:            feed.ID,
 		CreatedAt:     feed.CreatedAt,
 		UpdatedAt:     feed.UpdatedAt,

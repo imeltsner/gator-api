@@ -62,13 +62,19 @@ func main() {
 		Handler: mux,
 	}
 
-	// Register routes
+	// Register user routes
 	mux.HandleFunc("POST /api/login", s.handlerLogin)
 	mux.HandleFunc("POST /api/users", s.handlerCreateUser)
 	mux.HandleFunc("GET /api/users/{id}", s.handlerGetUser) // authenticated
 	mux.HandleFunc("GET /api/users", s.handlerGetUsers)
 	mux.HandleFunc("DELETE /api/users/{id}", s.handlerDeleteUser) // authenticated
 	mux.HandleFunc("DELETE /admin/reset", s.handlerDeleteUsers)
+
+	// Register feed routes
+	mux.HandleFunc("POST /api/feeds", s.handlerAddFeed) // authenticated
+	mux.HandleFunc("GET /api/feeds/{id}", s.handlerGetFeed)
+	mux.HandleFunc("GET /api/feeds", s.handlerGetFeeds)
+	mux.HandleFunc("POST /api/agg", s.handlerAggregate)
 
 	// Register commands
 	cmds := commands{
@@ -78,9 +84,9 @@ func main() {
 	//cmds.register("register", handlerRegister)
 	//cmds.register("reset", handlerReset)
 	//cmds.register("users", handlerUsers)
-	cmds.register("agg", handlerAggregate)
-	cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
-	cmds.register("feeds", handlerGetFeeds)
+	// cmds.register("agg", handlerAggregate)
+	// cmds.register("addfeed", middlewareLoggedIn(handlerAddFeed))
+	// cmds.register("feeds", handlerGetFeeds)
 	cmds.register("follow", middlewareLoggedIn(handlerFollow))
 	cmds.register("following", middlewareLoggedIn(handlerFollowing))
 	cmds.register("unfollow", middlewareLoggedIn(handlerUnfollow))

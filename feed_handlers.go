@@ -2,86 +2,161 @@ package main
 
 import (
 	"context"
-	"fmt"
+	"encoding/json"
+	"log"
+	"net/http"
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/imeltsner/gator-api/internal/auth"
 	"github.com/imeltsner/gator-api/internal/database"
 )
 
-func handlerAggregate(s *state, cmd command) error {
-	if len(cmd.args) != 1 {
-		return fmt.Errorf("agg command expects 1 argumnt: duration")
-	}
-
-	timeBetweenReqs, err := time.ParseDuration(cmd.args[0])
-	if err != nil {
-		return fmt.Errorf("unable to parse duration %v: %v", cmd.args[0], err)
-	}
-	fmt.Printf("Fetching feeds every %v\n", timeBetweenReqs)
-	ticker := time.NewTicker(timeBetweenReqs)
-	for ; ; <-ticker.C {
-		err = scrapeFeeds(s)
-		if err != nil {
-			return err
-		}
-	}
+type Feed struct {
+	ID            uuid.UUID `json:"id"`
+	CreatedAt     time.Time `json:"created_at"`
+	UpdatedAt     time.Time `json:"updated_at"`
+	LastFetchedAt time.Time `json:"last_fetched_at"`
+	Title         string    `json:"title"`
+	Url           string    `json:"url"`
+	UserID        uuid.UUID `json:"user_id"`
 }
 
-func handlerAddFeed(s *state, cmd command, user database.User) error {
-	if len(cmd.args) != 2 {
-		return fmt.Errorf("feed command requires 2 sub args: name and url")
+func (s *state) handlerAggregate(w http.ResponseWriter, r *http.Request) {
+	err := s.scrapeFeeds()
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to scrape feeds", err)
+	}
+
+	w.WriteHeader(http.StatusOK)
+}
+
+func (s *state) handlerAddFeed(w http.ResponseWriter, r *http.Request) {
+	type parameters struct {
+		Title string `json:"title"`
+		Url   string `json:"url"`
+	}
+
+	decoder := json.NewDecoder(r.Body)
+	params := parameters{}
+	err := decoder.Decode(&params)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to decode params", err)
+		return
+	}
+
+	authToken, err := auth.GetBearerToken(r.Header)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse auth header", err)
+		return
+	}
+
+	id, err := auth.ValidateJWT(authToken, s.jwtSecret)
+	if err != nil {
+		respondWithError(w, http.StatusUnauthorized, "unable to validate jwt", err)
+		return
 	}
 
 	feedParams := database.CreateFeedParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		Title:     cmd.args[0],
-		Url:       cmd.args[1],
-		UserID:    user.ID,
+		Title:     params.Title,
+		Url:       params.Url,
+		UserID:    id,
 	}
 
-	feed, err := s.db.CreateFeed(context.Background(), feedParams)
+	feed, err := s.db.CreateFeed(r.Context(), feedParams)
 	if err != nil {
-		return fmt.Errorf("unable to create RSS feed: %v", err)
+		respondWithError(w, http.StatusInternalServerError, "unable to create feed", err)
+		return
 	}
 
 	feedFollowParams := database.CreateFeedFollowParams{
 		ID:        uuid.New(),
 		CreatedAt: time.Now().UTC(),
 		UpdatedAt: time.Now().UTC(),
-		UserID:    user.ID,
+		UserID:    id,
 		FeedID:    feed.ID,
 	}
 
-	_, err = s.db.CreateFeedFollow(context.Background(), feedFollowParams)
+	_, err = s.db.CreateFeedFollow(r.Context(), feedFollowParams)
 	if err != nil {
-		return fmt.Errorf("unable to follow feed %v for user %v: %v", feed.Title, user.Name, err)
+		respondWithError(w, http.StatusInternalServerError, "unable to create feed follow entry", err)
+		return
 	}
 
-	fmt.Printf("Feed created successfully with name %v at url %v\n", feed.Title, feed.Url)
-	return nil
+	log.Printf("Feed created successfully with name %v at url %v\n", feed.Title, feed.Url)
+	respondWithJSON(w, http.StatusCreated, Feed{
+		ID:            feed.ID,
+		CreatedAt:     feed.CreatedAt,
+		UpdatedAt:     feed.UpdatedAt,
+		LastFetchedAt: feed.LastFetchedAt.Time,
+		Title:         feed.Title,
+		Url:           feed.Url,
+		UserID:        feed.UserID,
+	})
 }
 
-func handlerGetFeeds(s *state, cmd command) error {
+func (s *state) handlerGetFeed(w http.ResponseWriter, r *http.Request) {
+	idString := r.PathValue("id")
+	feedID, err := uuid.Parse(idString)
+	if err != nil {
+		respondWithError(w, http.StatusInternalServerError, "unable to parse feed id", err)
+		return
+	}
+
+	feed, err := s.db.GetFeedByID(r.Context(), feedID)
+	if err != nil {
+		respondWithError(w, http.StatusNotFound, "feed not found", err)
+		return
+	}
+
+	respondWithJSON(w, http.StatusOK, Feed{
+		ID:            feed.ID,
+		CreatedAt:     feed.CreatedAt,
+		UpdatedAt:     feed.UpdatedAt,
+		LastFetchedAt: feed.LastFetchedAt.Time,
+		Title:         feed.Title,
+		Url:           feed.Url,
+		UserID:        feed.UserID,
+	})
+}
+
+func (s *state) handlerGetFeeds(w http.ResponseWriter, r *http.Request) {
 	feeds, err := s.db.GetFeeds(context.Background())
 	if err != nil {
-		return fmt.Errorf("unable to get feeds")
+		respondWithError(w, http.StatusInternalServerError, "unable to get feeds", err)
+		return
 	}
 
-	for _, feed := range feeds {
+	type response struct {
+		Feeds []Feed   `json:"feeds"`
+		Users []string `json:"users"`
+	}
+	allFeeds := make([]Feed, len(feeds))
+	userNames := make([]string, len(feeds))
+
+	for i, feed := range feeds {
 		user, err := s.db.GetUserNameByID(context.Background(), feed.UserID)
 		if err != nil {
-			fmt.Printf("unable to get retrieve name for feed %v\n", feed.ID)
-			continue
+			respondWithError(w, http.StatusNotFound, "user not found", err)
+			return
 		}
-		fmt.Println("***")
-		fmt.Printf("* Feed: %v\n", feed.Title)
-		fmt.Printf("* URL: %v\n", feed.Url)
-		fmt.Printf("* Submitted by: %v\n", user)
-		fmt.Println("***")
+		allFeeds[i] = Feed{
+			ID:            feed.ID,
+			CreatedAt:     feed.CreatedAt,
+			UpdatedAt:     feed.UpdatedAt,
+			LastFetchedAt: feed.LastFetchedAt.Time,
+			Title:         feed.Title,
+			Url:           feed.Url,
+			UserID:        feed.UserID,
+		}
+		userNames[i] = user
 	}
 
-	return nil
+	respondWithJSON(w, http.StatusOK, response{
+		Feeds: allFeeds,
+		Users: userNames,
+	})
 }

@@ -71,7 +71,7 @@ func (feed *RSSFeed) unescape() {
 	}
 }
 
-func scrapeFeeds(s *state) error {
+func (s *state) scrapeFeeds() error {
 	nextFeed, err := s.db.GetNextFeedToFetch(context.Background())
 	if err != nil {
 		return fmt.Errorf("unable to get next feed: %v", err)
@@ -93,14 +93,14 @@ func scrapeFeeds(s *state) error {
 	}
 	fmt.Printf("Feed at url %v fetched successfully\n", rssFeed.Channel.Link)
 
-	err = saveFeed(s, *rssFeed, nextFeed)
+	err = s.saveFeed(*rssFeed, nextFeed)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func saveFeed(s *state, feed RSSFeed, dbFeed database.Feed) error {
+func (s *state) saveFeed(feed RSSFeed, dbFeed database.Feed) error {
 	for _, item := range feed.Channel.Item {
 		postParams := generatePostParams(item, dbFeed)
 		post, err := s.db.CreatePost(context.Background(), postParams)
